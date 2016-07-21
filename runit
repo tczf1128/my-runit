@@ -99,7 +99,7 @@ function verify() {
         fi
     done<${envfile}
 
-    if [[ "$valid_format" -eq 0 ]]&&[[ "$CHECK_FLAG" -eq 1 ]]; then
+    if [[ "$valid_format" -eq 0 ]] && [[ "$CHECK_FLAG" -eq 1 ]]; then
         echo -e "check procfile and envfile ok"
     fi
 
