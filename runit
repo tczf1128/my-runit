@@ -1,0 +1,294 @@
+#!/bin/bash
+
+#ON-OFF
+set -x
+set -o pipefail
+
+#default file
+PROCFILE="./Procfile"
+ENVFILE="./.env"
+TMP_FILE="./Tmp_file"
+
+#default variable
+PORT=8080
+CHECK_FLAG=0
+CUR_PID=$$
+COLOR_CNT=31
+declare -a PID_LIST
+
+#catch interrupt signal and kill all
+trap kill_all_subprocess INT SIGTERM
+
+function usage() {
+    echo "Usage: runit [-c] [-f procfile|Procfile] [-e envfile|.env]"
+    echo "Usage: runit [-h]"
+    echo "-c: check procfile and env_file"
+    echo "-f: use procfile"
+    echo "-e: use envfile"
+    echo "-h: print help"
+}
+
+###########################
+# Brief: 
+#   get option
+# Arguments: 
+#   None
+# Returns: 
+#   0 for success, 1 for fail
+###########################
+function get_option(){
+    if [[ $# -eq 0 ]]; then
+        return 0
+    fi
+    while getopts "f:e:ch" opt; do
+        case "${opt}" in 
+            f)
+                PROCFILE="${OPTARG}"
+                ;;
+            c)
+                CHECK_FLAG=1
+                ;;
+            e)
+                ENVFILE="${OPTARG}"
+                ;;
+            h)
+                usage
+                exit 0
+                ;;
+            *)
+                usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
+
+###########################
+# Brief: 
+#   check valid of procfile and envfile
+# Arguments: 
+#   procfile, envfile
+# Returns: 
+#   0 for success, 1 for fail
+###########################
+function verify() {
+    local procfile="$1"
+    local envfile="$2"
+    local valid_format=0
+    while read -r line; do
+        if [[ "${line}" =~ ^$ || "${line}" =~ ^\s*#.*$ ]]; then
+            continue
+        fi
+        if [[ "${line}" =~  ^.*:.* ]]; then
+            local prefix_name=${line%%:*}
+            local value=${line#*:}
+            if [[ "${prefix_name}" =~ ^[a-zA-Z0-9_]*$ ]]; then
+                continue
+            else
+                echo -e "invalid format, procfilem, $line"
+                valid_format=1
+            fi
+        else
+            valid_format=1
+            echo -e "invalid format, procfile, $line"
+        fi
+    done<${procfile}
+
+    while read -r line; do
+        if [[ "${line}" =~ ^$ || "${line}" =~ ^\s*#.*$ ]]; then
+            continue
+        fi
+        if [[ "${line}" =~  ^.*=.* ]]; then
+            local prefix_name=${line%%=*}
+            local value=${line#*=}
+            if [[ "${prefix_name}" =~ ^[a-zA-Z0-9_]*$ ]]; then
+                if [[ "${value}" =~ ^.*\s.*$ ]]; then
+                    echo -e "invalid format, envfile, $line"
+                    valid_format=1
+                else
+                    continue
+                fi
+            else
+                echo -e "invalid format, envfile, $line"
+                valid_format=1
+            fi
+        else
+            valid_format=1
+            echo -e "invalid format, envfile, $line"
+        fi
+    done<${envfile}
+
+    if [[ "$valid_format" -eq 0 ]]&&[[ "$CHECK_FLAG" -eq 1 ]]; then
+        echo -e "check procfile and envfile ok"
+    fi
+    return $valid_format
+}
+
+###########################
+# Brief: 
+#   print log
+# Arguments:  
+#   proc_name, proc_cmd, color
+# Returns: 
+#   None
+###########################
+function log() {
+    local proc_name="$1"
+    local proc_cmd="$2"
+    local pid=$!
+    local color="$3"
+    local date=$(date +%T)
+    printf "\e[${color};40m%s %s | %s started with pid %s \e[0m\n" \
+           "${date}" "${proc_name}" "${proc_cmd}" "${pid}"
+    while read line; do
+        if [[ -n "${line}" ]]; then
+            printf "\e[${color};40m%s %s | %s\e[0m\n" \
+                "${date}" "${proc_name}" "${line}"
+        fi
+    done
+}
+
+###########################
+# Brief: 
+#   run one command
+# Arguments:  
+#   proc_name, proc_cmd, color
+# Returns: 
+#   None
+###########################
+function run_command() {
+    local proc_name="$1"
+    local proc_cmd="$2"
+    local color="$3"
+    export PORT
+    export DATE_FORMAT
+    proc_cmd=$(eval echo \"${proc_cmd}\")
+    bash -c "${proc_cmd}" 2>&1 | log \
+          "${proc_name}" "${proc_cmd}" ${color} & 
+}
+
+###########################
+# Brief: 
+#   load envfile to envirament variable
+# Arguments:
+#   None
+# Returns: 
+#   None
+###########################
+function load_env_file() {
+    if [[ ! -s "${ENVFILE}" ]]; then
+        echo "PORT=8080" >> "${ENVFILE}"
+        echo "DATE_FORMAT='+%Y-%m-%d|%H:%M:%S'" >> "${ENVFILE}"
+    fi
+    while read line; do
+        echo "${line}" | grep -qE "^\s*$" &>/dev/null
+        if [[ $? -eq 0 ]]; then
+            continue
+        fi
+        export $(eval echo "${line}")
+        if [[ $? -eq 1 ]]; then
+            exit 1
+        fi
+    done < "$ENVFILE"
+}
+
+###########################
+# Brief: 
+#   run commands in procfile
+# Arguments:
+#   None
+# Returns:
+#   None
+###########################
+function run_procfile() {
+    #filter comment and blank line
+    grep -vE "^\s*$|^\s*#" "$PROCFILE"  > "${TMP_FILE}" 2>/dev/null
+    local color_cnt=${COLOR_CNT}
+    while read line; do
+        local proc_name="${line%%:*}"
+        local proc_cmd="${line#*:}"
+        run_command "${proc_name}" "${proc_cmd}" ${color_cnt}
+        echo "${proc_cmd}" | grep -q "PORT"
+        if [[ $? -eq 0 ]]; then 
+            PORT="$(expr $PORT + 1)"
+        fi
+        color_cnt="$[ (${color_cnt} + 1) % 7 + ${COLOR_CNT} ]"
+    done < "${TMP_FILE}"
+    wait
+}
+
+###########################
+# Brief: 
+#   get subprocess of pid
+# Arguments:
+#   pid
+# Returns:
+#   0 for success, 1 for fail
+###########################
+function get_subprocess() {
+    local pid="$1" 
+    if [[ -n "${pid}" ]]; then
+        local sub_pid=""
+        sub_pids="$(pgrep -P ${pid})"
+        if [[ -n "${sub_pids}" ]]; then
+            for sub_pid in "${sub_pids}"; 
+            do
+                if [[ -z "${sub_pid}" ]]; then
+                    continue
+                else
+                    list_cnt="${#PID_LIST[@]}"
+                    PID_LIST[${list_cnt}]="${sub_pid}"
+                    get_subprocess "${sub_pid}"
+                fi
+                return 0
+            done
+        else
+            return 0
+        fi
+    else
+        return 0
+    fi
+}
+
+###########################
+# Brief: 
+#   kill all subprocess
+# Arguments:
+#   None
+# Returns:
+#   0 for success, 1 for fail
+###########################
+function kill_all_subprocess() {
+    rm -f ${TMP_FILE}
+    local pid="" 
+    get_subprocess "${CUR_PID}"
+    for pid in "${PID_LIST[@]}";
+    do
+        kill -9 ${pid}
+        if [[ $? -ne 0 ]]; then
+            echo -e "pid: ${pid} kill failed"
+            return 1
+        else
+            echo -e "pid: ${pid} is successfully killed"
+        fi
+    done
+    return 0
+}
+
+function main() {
+    get_option "$@"
+    if [[ "${CHECK_FLAG}" -eq 1 ]]; then
+        verify "$PROCFILE" "$ENVFILE"
+        if [[ $? -eq 1 ]]; then
+            exit 1
+        fi
+        exit 0
+    fi
+    verify "$PROCFILE" "$ENVFILE" || exit 1
+    load_env_file
+    run_procfile
+    exit 0
+}
+
+main "$@"
