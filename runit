@@ -11,6 +11,8 @@ PORT=8080
 CHECK_FLAG=0
 CUR_PID=$$
 COLOR_CNT=31
+
+#running process pids
 declare -a PID_LIST
 
 #catch signals
@@ -73,7 +75,7 @@ function verify() {
             valid_format=1
             echo -e "invalid format, procfile, $line"
         fi
-    done<${procfile}
+    done < ${procfile}
 
     while read -r line; do
         if [[ "${line}" =~ ^$ || "${line}" =~ ^\s*#.*$ ]]; then
@@ -97,7 +99,7 @@ function verify() {
             valid_format=1
             echo -e "invalid format, envfile, $line"
         fi
-    done<${envfile}
+    done < ${envfile}
 
     if [[ "$valid_format" -eq 0 ]] && [[ "$CHECK_FLAG" -eq 1 ]]; then
         echo -e "check procfile and envfile ok"
@@ -153,6 +155,7 @@ function load_env_file() {
 function run_procfile() {
     #filter comment and blank line
     grep -vE "^\s*$|^\s*#" "$PROCFILE"  > "${TMP_FILE}" 2>/dev/null
+
     local color_cnt=${COLOR_CNT}
     while read line; do
         local proc_name="${line%%:*}"
@@ -206,11 +209,13 @@ function kill_all_subprocess() {
             echo -e "pid: ${pid} is successfully killed"
         fi
     done
+
     return 0
 }
 
 function main() {
     get_option "$@"
+
     if [[ "${CHECK_FLAG}" -eq 1 ]]; then
         verify "$PROCFILE" "$ENVFILE"
         if [[ $? -eq 1 ]]; then
@@ -218,9 +223,11 @@ function main() {
         fi
         exit 0
     fi
+
     verify "$PROCFILE" "$ENVFILE" || exit 1
     load_env_file
     run_procfile
+
     exit 0
 }
 
