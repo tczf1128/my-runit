@@ -3,19 +3,17 @@
 set -x
 set -o pipefail
 
-#default file
+#default configurations
 PROCFILE="./Procfile"
 ENVFILE="./.env"
 TMP_FILE="./Tmp_file"
-
-#default variable
 PORT=8080
 CHECK_FLAG=0
 CUR_PID=$$
 COLOR_CNT=31
 declare -a PID_LIST
 
-#catch interrupt signal and kill all
+#catch signals
 trap kill_all_subprocess INT SIGTERM
 
 function usage() {
@@ -27,14 +25,6 @@ function usage() {
     echo "-h: print help"
 }
 
-###########################
-# Description: 
-#   get option
-# Args: 
-#   None
-# Returns: 
-#   0 for success, 1 for fail
-###########################
 function get_option(){
     if [[ $# -eq 0 ]]; then
         return 0
@@ -62,15 +52,6 @@ function get_option(){
     done
 }
 
-
-###########################
-# Description: 
-#   check valid of procfile and envfile
-# Args: 
-#   procfile, envfile
-# Returns: 
-#   0 for success, 1 for fail
-###########################
 function verify() {
     local procfile="$1"
     local envfile="$2"
@@ -125,14 +106,6 @@ function verify() {
     return $valid_format
 }
 
-###########################
-# Description: 
-#   print log
-# Args:  
-#   proc_name, proc_cmd, color
-# Returns: 
-#   None
-###########################
 function log() {
     local proc_name="$1"
     local proc_cmd="$2"
@@ -149,14 +122,6 @@ function log() {
     done
 }
 
-###########################
-# Description: 
-#   run one command
-# Args:  
-#   proc_name, proc_cmd, color
-# Returns: 
-#   None
-###########################
 function run_command() {
     local proc_name="$1"
     local proc_cmd="$2"
@@ -168,14 +133,6 @@ function run_command() {
           "${proc_name}" "${proc_cmd}" ${color} & 
 }
 
-###########################
-# Description: 
-#   load envfile to envirament variable
-# Args:
-#   None
-# Returns: 
-#   None
-###########################
 function load_env_file() {
     if [[ ! -s "${ENVFILE}" ]]; then
         echo "PORT=8080" >> "${ENVFILE}"
@@ -193,14 +150,6 @@ function load_env_file() {
     done < "$ENVFILE"
 }
 
-###########################
-# Description: 
-#   run commands in procfile
-# Args:
-#   None
-# Returns:
-#   None
-###########################
 function run_procfile() {
     #filter comment and blank line
     grep -vE "^\s*$|^\s*#" "$PROCFILE"  > "${TMP_FILE}" 2>/dev/null
@@ -218,14 +167,6 @@ function run_procfile() {
     wait
 }
 
-###########################
-# Description: 
-#   get subprocess of pid
-# Args:
-#   pid
-# Returns:
-#   0 for success, 1 for fail
-###########################
 function get_subprocess() {
     local pid="$1" 
     if [[ -n "${pid}" ]]; then
@@ -251,14 +192,6 @@ function get_subprocess() {
     fi
 }
 
-###########################
-# Description: 
-#   kill all subprocess
-# Args:
-#   None
-# Returns:
-#   0 for success, 1 for fail
-###########################
 function kill_all_subprocess() {
     rm -f ${TMP_FILE}
     local pid="" 
