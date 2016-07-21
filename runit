@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#ON-OFF
 set -x
 set -o pipefail
 
@@ -29,9 +28,9 @@ function usage() {
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   get option
-# Arguments: 
+# Args: 
 #   None
 # Returns: 
 #   0 for success, 1 for fail
@@ -65,9 +64,9 @@ function get_option(){
 
 
 ###########################
-# Brief: 
+# Description: 
 #   check valid of procfile and envfile
-# Arguments: 
+# Args: 
 #   procfile, envfile
 # Returns: 
 #   0 for success, 1 for fail
@@ -122,13 +121,14 @@ function verify() {
     if [[ "$valid_format" -eq 0 ]]&&[[ "$CHECK_FLAG" -eq 1 ]]; then
         echo -e "check procfile and envfile ok"
     fi
+
     return $valid_format
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   print log
-# Arguments:  
+# Args:  
 #   proc_name, proc_cmd, color
 # Returns: 
 #   None
@@ -150,9 +150,9 @@ function log() {
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   run one command
-# Arguments:  
+# Args:  
 #   proc_name, proc_cmd, color
 # Returns: 
 #   None
@@ -169,9 +169,9 @@ function run_command() {
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   load envfile to envirament variable
-# Arguments:
+# Args:
 #   None
 # Returns: 
 #   None
@@ -194,9 +194,9 @@ function load_env_file() {
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   run commands in procfile
-# Arguments:
+# Args:
 #   None
 # Returns:
 #   None
@@ -219,9 +219,9 @@ function run_procfile() {
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   get subprocess of pid
-# Arguments:
+# Args:
 #   pid
 # Returns:
 #   0 for success, 1 for fail
@@ -252,9 +252,9 @@ function get_subprocess() {
 }
 
 ###########################
-# Brief: 
+# Description: 
 #   kill all subprocess
-# Arguments:
+# Args:
 #   None
 # Returns:
 #   0 for success, 1 for fail
